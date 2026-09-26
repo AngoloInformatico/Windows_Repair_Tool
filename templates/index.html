@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Windows Repair Tool | Console di Riparazione Avanzata</title>
+    <!-- Font moderni Sci-Fi e Tecnici -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;600;700&family=Fira+Code:wght@400;500;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <!-- Icona Riconoscitiva WebApp -->
+    <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">
+    <link rel="shortcut icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">
+    <!-- Fogli di stile personalizzati -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <!-- Sfondo animato a griglia cyberpunk e particelle di luce -->
+    <div class="cyber-grid-bg"></div>
+    <div class="glow-orb orb-1"></div>
+    <div class="glow-orb orb-2"></div>
+
+    <!-- Barra superiore di stato e privilegi UAC -->
+    <header class="top-status-bar">
+        <div class="status-left">
+            <span class="system-tag"><i class="fa-brands fa-windows"></i> {{ sys_info.os_name }} (Build {{ sys_info.win_version }})</span>
+            <span class="system-tag host-tag"><i class="fa-solid fa-server"></i> {{ sys_info.hostname }}</span>
+            <span class="system-tag version-tag"><i class="fa-solid fa-code-branch"></i> v{{ sys_info.version }}</span>
+        </div>
+        <div class="status-right">
+            {% if sys_info.is_admin %}
+                <div class="admin-badge admin-active">
+                    <span class="status-dot green-pulse"></span>
+                    <i class="fa-solid fa-shield-check"></i> PRIVILEGI AMMINISTRATORE ATTIVI
+                </div>
+            {% else %}
+                <div class="admin-badge admin-warning">
+                    <span class="status-dot amber-pulse"></span>
+                    <i class="fa-solid fa-triangle-exclamation"></i> UTENTE STANDARD (Alcuni comandi richiedono elevazione)
+                </div>
+                <button class="btn-elevate" id="btnRelaunchAdmin" title="Rilancia questa WebApp con privilegi di Amministratore (UAC)">
+                    <i class="fa-solid fa-user-shield"></i> Rilancia come Admin
+                </button>
+            {% endif %}
+            <button class="btn-open-browser" id="btnOpenInBrowser" title="Apri l'interfaccia nel browser completo (Chrome/Edge/Firefox)">
+                <i class="fa-solid fa-arrow-up-right-from-square"></i> Apri nel Browser
+            </button>
+        </div>
+    </header>
+
+    <div class="main-wrapper">
+        <!-- Cornice olografica Cyberpunk ispirata al post originale -->
+        <div class="cyber-hud-container">
+            <!-- Dettagli decorativi HUD angolari superiori -->
+            <div class="hud-top-decors">
+                <div class="hud-arrows-left">&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;</div>
+                <div class="hud-tech-dots">
+                    <span></span><span></span><span></span><span></span>
+                </div>
+                <div class="hud-arrows-right">&gt;&gt;&gt;&gt;</div>
+            </div>
+
+            <!-- Header con Logo Windows 11 luminoso e Titolo -->
+            <div class="hud-header">
+                <div class="header-text-block">
+                    <div class="sub-label">WINDOWS 11 SYSTEM RESCUE SUITE • 30 UTILITY ESSENZIALI</div>
+                    <h1 class="main-title">
+                        <span class="title-number">30</span> COMANDI DI RIPARAZIONE DI
+                        <span class="title-windows">WINDOWS 11</span>
+                    </h1>
+                    <div class="cmd-prompt-badge">
+                        <span class="prompt-symbol">C:\&gt;</span> Esegui nel Prompt dei comandi 
+                        <span class="prompt-highlight">(Amministratore)</span>
+                    </div>
+                </div>
+
+                <!-- Logo Windows 11 Fluttuante e Luminoso (fedele all'originale) -->
+                <div class="win-logo-card">
+                    <div class="win-logo-grid">
+                        <div class="win-tile tile-tl"></div>
+                        <div class="win-tile tile-tr"></div>
+                        <div class="win-tile tile-bl"></div>
+                        <div class="win-tile tile-br"></div>
+                    </div>
+                    <div class="win-logo-glow"></div>
+                </div>
+            </div>
+
+            <!-- Toolbar di controllo: Ricerca, Filtri Categorie ed Esportazione -->
+            <div class="control-panel">
+                <div class="search-bar-wrap">
+                    <i class="fa-solid fa-magnifying-glass search-icon"></i>
+                    <input type="text" id="searchInput" placeholder="Cerca tra i 30 comandi o per problema (es. bcdedit, dism, sfc, dns, boot, bios, store...)" autocomplete="off">
+                    <button id="btnClearSearch" class="btn-clear-search" style="display:none;"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+
+                <div class="action-buttons-wrap">
+                    <div class="dropdown">
+                        <button class="btn-cyber btn-export" id="btnExportMenu">
+                            <i class="fa-solid fa-file-code"></i> Genera Script Rescue <i class="fa-solid fa-chevron-down caret-icon"></i>
+                        </button>
+                        <div class="dropdown-content" id="exportDropdown">
+                            <a href="#" data-format="bat" data-scope="all"><i class="fa-solid fa-file-zipper"></i> Scarica Tutti i 30 Comandi (.BAT)</a>
+                            <a href="#" data-format="ps1" data-scope="all"><i class="fa-brands fa-powershell"></i> Scarica Tutti i 30 Comandi (.PS1)</a>
+                        </div>
+                    </div>
+                    <button class="btn-cyber btn-terminal-toggle" id="btnToggleTerminal">
+                        <i class="fa-solid fa-square-terminal"></i> Console Live <span class="badge-terminal-status" id="terminalIndicator">PRONTO</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Categorie a tab futuristici -->
+            <nav class="category-tabs" id="categoryTabs">
+                {% for cat in categories %}
+                    <button class="cat-tab {% if cat.id == 'all' %}active{% endif %}" data-category="{{ cat.id }}">
+                        <i class="fa-solid {{ cat.icon }}"></i>
+                        <span>{{ cat.name }}</span>
+                        {% if cat.id == 'all' %}
+                            <span class="counter-badge">30</span>
+                        {% endif %}
+                    </button>
+                {% endfor %}
+            </nav>
+
+            <!-- Lista Comandi in griglia HUD -->
+            <main class="commands-grid" id="commandsGrid">
+                {% for cmd in commands %}
+                    <div class="cmd-card {% if cmd.is_original %}card-original{% endif %}" 
+                         id="{{ cmd.id }}" 
+                         data-category="{{ cmd.category }}" 
+                         data-is-original="{{ 'true' if cmd.is_original else 'false' }}"
+                         data-risk="{{ cmd.risk }}">
+                        
+                        <div class="card-left-section">
+                            <!-- Numero con bordo squadrato neon -->
+                            <div class="cmd-num-box">
+                                <span class="cmd-num">{{ cmd.num }}</span>
+                            </div>
+
+                            <!-- Icona stilizzata come nell'immagine -->
+                            <div class="cmd-icon-box">
+                                {% if cmd.icon == 'desktop-gear' %}
+                                    <i class="fa-solid fa-desktop-arrow-down"></i>
+                                {% elif cmd.icon == 'chip-bcd' %}
+                                    <span class="chip-label">BCD</span>
+                                {% elif cmd.icon == 'list-enum' %}
+                                    <i class="fa-solid fa-list-check"></i>
+                                {% elif cmd.icon == 'shield-check' %}
+                                    <i class="fa-solid fa-shield-check"></i>
+                                {% elif cmd.icon == 'lifebuoy' %}
+                                    <i class="fa-solid fa-life-ring"></i>
+                                {% elif cmd.icon == 'refresh-circle' %}
+                                    <i class="fa-solid fa-rotate"></i>
+                                {% elif cmd.icon == 'checkbox-checked' %}
+                                    <i class="fa-regular fa-square-check"></i>
+                                {% elif cmd.icon == 'chip-bios' %}
+                                    <span class="chip-label chip-bios">BIOS</span>
+                                {% elif cmd.icon == 'info-circle' %}
+                                    <i class="fa-solid fa-circle-info"></i>
+                                {% elif cmd.icon == 'gears' %}
+                                    <i class="fa-solid fa-gears"></i>
+                                {% elif cmd.icon == 'shield-virus' %}
+                                    <i class="fa-solid fa-shield-virus"></i>
+                                {% elif cmd.icon == 'wrench-screwdriver' %}
+                                    <i class="fa-solid fa-wrench"></i>
+                                {% elif cmd.icon == 'heart-pulse' %}
+                                    <i class="fa-solid fa-heart-pulse"></i>
+                                {% elif cmd.icon == 'trash-can' %}
+                                    <i class="fa-solid fa-trash-can"></i>
+                                {% elif cmd.icon == 'plug-circle-bolt' %}
+                                    <i class="fa-solid fa-plug-circle-bolt"></i>
+                                {% elif cmd.icon == 'network-wired' %}
+                                    <i class="fa-solid fa-network-wired"></i>
+                                {% elif cmd.icon == 'broom' %}
+                                    <i class="fa-solid fa-broom"></i>
+                                {% elif cmd.icon == 'arrows-rotate' %}
+                                    <i class="fa-solid fa-arrows-rotate"></i>
+                                {% elif cmd.icon == 'magnifying-glass-chart' %}
+                                    <i class="fa-solid fa-magnifying-glass-chart"></i>
+                                {% elif cmd.icon == 'bolt-lightning' %}
+                                    <i class="fa-solid fa-bolt-lightning"></i>
+                                {% elif cmd.icon == 'compress' %}
+                                    <i class="fa-solid fa-file-zipper"></i>
+                                {% elif cmd.icon == 'arrows-spin' %}
+                                    <i class="fa-solid fa-arrows-spin"></i>
+                                {% elif cmd.icon == 'window-restore' %}
+                                    <i class="fa-solid fa-window-restore"></i>
+                                {% elif cmd.icon == 'bag-shopping' %}
+                                    <i class="fa-solid fa-bag-shopping"></i>
+                                {% elif cmd.icon == 'boxes-stacked' %}
+                                    <i class="fa-solid fa-boxes-stacked"></i>
+                                {% elif cmd.icon == 'battery-three-quarters' %}
+                                    <i class="fa-solid fa-battery-three-quarters"></i>
+                                {% elif cmd.icon == 'memory' %}
+                                    <i class="fa-solid fa-microchip"></i>
+                                {% else %}
+                                    <i class="fa-solid fa-terminal"></i>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- 2. Sezione Contenuto: 1° Riga Titolo Comando, 2° Riga Spiegazione -->
+                        <div class="card-content-section">
+                            <div class="cmd-title-row">
+                                <code class="code-badge">{{ cmd.display_cmd }}</code>
+                            </div>
+                            <div class="cmd-desc-row">
+                                <p class="cmd-desc-text">{{ cmd.short_desc }}</p>
+                            </div>
+                        </div>
+
+                        <!-- 3. Sezione Etichette: Allineate su un lato dedicato -->
+                        <div class="card-badges-section">
+                            <span class="badge-risk risk-{{ cmd.risk }}">{{ cmd.risk_label }}</span>
+                            {% if cmd.needs_reboot %}
+                                <span class="badge-reboot"><i class="fa-solid fa-arrow-rotate-right"></i> Riavvio</span>
+                            {% endif %}
+                        </div>
+
+                        <!-- Pulsanti Azione (Esegui, Copia, Dettagli Pro/Contro) -->
+                        <div class="card-actions-section">
+                            <button class="btn-card-action btn-run" data-id="{{ cmd.id }}" title="Esegui comando nella console live">
+                                <i class="fa-solid fa-play"></i>
+                                <span>Esegui</span>
+                            </button>
+                            <button class="btn-card-action btn-copy" data-cmd="{{ cmd.command }}" title="Copia comando negli appunti">
+                                <i class="fa-regular fa-copy"></i>
+                            </button>
+                            <button class="btn-card-action btn-info" data-id="{{ cmd.id }}" title="Visualizza analisi approfondita con PRO e CONTRO">
+                                <i class="fa-solid fa-circle-question"></i>
+                                <span>Pro & Contro</span>
+                            </button>
+                        </div>
+                    </div>
+                {% endfor %}
+            </main>
+
+            <!-- Box Consiglio Pro & Salva Post fedele al footer dell'immagine -->
+            <footer class="hud-pro-tip-box">
+                <div class="pro-tip-content">
+                    <div class="pro-tip-icon">
+                        <i class="fa-regular fa-lightbulb"></i>
+                    </div>
+                    <div class="pro-tip-text">
+                        <span class="tip-title">CONSIGLIO PRO:</span>
+                        <span class="tip-body">Questi comandi aiutano a risolvere problemi di avvio, riparare file di sistema danneggiati, ottimizzare memorie SSD e gestire gli ambienti di ripristino come un professionista. Per comandi invasivi come SFC, DISM e BCDEDIT assicurati di aver eseguito l'applicazione con privilegi di Amministratore.</span>
+                    </div>
+                </div>
+                <div class="save-post-bookmark">
+                    <i class="fa-regular fa-bookmark bookmark-icon"></i>
+                    <div class="bookmark-text">
+                        <span class="bm-title">COLTELLINO SVIZZERO</span>
+                        <span class="bm-sub">WINDOWS 11 REPAIR TOOL</span>
+                    </div>
+                </div>
+            </footer>
+        </div>
+
+        <!-- Finestra Console Terminale Hacker / CRT HUD (Espandibile / Riducibile) -->
+        <section class="cyber-terminal-panel" id="terminalPanel">
+            <div class="terminal-header" id="terminalHeader" title="Clicca sulla barra per espandere o ridurre la console">
+                <div class="term-title">
+                    <i class="fa-solid fa-terminal"></i> CONSOLE LIVE DI SISTEMA [C:\Windows\System32]
+                    <span class="term-toggle-hint" id="termToggleHint">(Clicca per ridurre)</span>
+                </div>
+                <div class="term-controls">
+                    <button id="btnClearTerminal" title="Pulisci console"><i class="fa-solid fa-trash-can"></i> Pulisci</button>
+                    <button id="btnCopyTerminal" title="Copia log console"><i class="fa-regular fa-copy"></i> Copia Log</button>
+                    <button id="btnCloseTerminal" title="Riduci / Espandi console"><i class="fa-solid fa-chevron-down" id="chevronIcon"></i></button>
+                </div>
+            </div>
+            <div class="terminal-body" id="terminalOutput">
+                <div class="terminal-welcome">
+                    <span class="term-cyan">[READY] Windows Repair Tool - Console inizializzata.</span><br>
+                    <span class="term-gray">Seleziona un comando sopra e clicca su "Esegui" per avviare il processo con streaming dell'output in tempo reale.</span>
+                </div>
+            </div>
+            <div class="terminal-input-bar">
+                <span class="term-prompt">C:\Windows\System32&gt;</span>
+                <input type="text" id="customCmdInput" placeholder="Digita un comando Windows personalizzato (es. ping 1.1.1.1, ipconfig, sfc /?)...">
+                <button id="btnRunCustomCmd" class="btn-run-custom"><i class="fa-solid fa-play"></i> Invia</button>
+            </div>
+        </section>
+    </div>
+
+    <!-- Modale Pro & Contro Dettagliati -->
+    <div class="modal-backdrop" id="detailsModal">
+        <div class="modal-cyber-window">
+            <div class="modal-header">
+                <div class="modal-title-wrap">
+                    <span class="modal-num-badge" id="modalNum">#1</span>
+                    <h3 class="modal-title" id="modalTitle">Nome Comando</h3>
+                </div>
+                <button class="modal-close-btn" id="btnCloseModal"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            
+            <div class="modal-body">
+                <!-- Comando effettivo visualizzato -->
+                <div class="modal-cmd-box">
+                    <div class="cmd-label-row">
+                        <span>COMANDO ESEGUITO:</span>
+                        <button class="btn-copy-mini" id="btnModalCopyCmd"><i class="fa-regular fa-copy"></i> Copia</button>
+                    </div>
+                    <code id="modalCmdSyntax">sfc /scannow</code>
+                </div>
+
+                <!-- Descrizione Dettagliata -->
+                <div class="modal-section">
+                    <h4 class="section-title"><i class="fa-solid fa-circle-info"></i> Cos'è &amp; Come Funziona nel Profondo</h4>
+                    <p id="modalFullDesc" class="section-paragraph">Descrizione completa...</p>
+                </div>
+
+                <!-- Griglia PRO & CONTRO -->
+                <div class="pro-con-grid">
+                    <div class="pro-card">
+                        <div class="pro-con-header pro-header">
+                            <i class="fa-solid fa-circle-check"></i> PRO (Vantaggi &amp; Risoluzione)
+                        </div>
+                        <ul id="modalProsList" class="pro-list">
+                            <li>Vantaggio 1</li>
+                        </ul>
+                    </div>
+                    <div class="con-card">
+                        <div class="pro-con-header con-header">
+                            <i class="fa-solid fa-triangle-exclamation"></i> CONTRO (Rischi, Avvertenze &amp; Tempi)
+                        </div>
+                        <ul id="modalConsList" class="con-list">
+                            <li>Svantaggio o rischio 1</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Parametri Tecnici & Metadati -->
+                <div class="modal-meta-row">
+                    <div class="meta-item">
+                        <span class="meta-label">Livello di Rischio:</span>
+                        <span id="modalRiskBadge" class="badge-risk">Sicuro</span>
+                    </div>
+                    <div class="meta-item">
+                        <span class="meta-label">Richiede Amministratore:</span>
+                        <span id="modalAdminReq" class="meta-val">SI</span>
+                    </div>
+                    <div class="meta-item">
+                        <span class="meta-label">Riavvio del PC:</span>
+                        <span id="modalRebootReq" class="meta-val">NO</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button class="btn-cyber btn-modal-run" id="btnModalRun">
+                    <i class="fa-solid fa-play"></i> Esegui Subito nella Console
+                </button>
+                <button class="btn-cyber btn-modal-close" id="btnModalCloseBottom">
+                    Chiudi Scheda
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sezione & Hoverlay COPYRIGHT e Community Links -->
+    <footer class="cyber-copyright-footer">
+        <div class="copyright-inner">
+            <div class="copyright-info">
+                <p class="copyright-main">
+                    Created by <span class="creator-highlight">Alex Lignola</span> - &copy; 2026 <strong>WINDOWS REPAIR</strong> - All rights reserved.
+                </p>
+                <div class="copyright-version-pill">
+                    <i class="fa-solid fa-code-commit"></i> Versione App: <strong>v{{ sys_info.version }}</strong> (Build {{ sys_info.build }})
+                </div>
+            </div>
+            
+            <!-- Collegamenti Ipertestuali con Effetto Hoverlay Cyberpunk -->
+            <div class="copyright-hoverlay-links">
+                <a href="https://www.youtube.com/@AngoloInformatico" target="_blank" rel="noopener noreferrer" class="hoverlay-link link-youtube" title="Canale YouTube Angolo Informatico">
+                    <i class="fa-brands fa-youtube link-icon"></i>
+                    <span class="link-label">@AngoloInformatico</span>
+                    <span class="hoverlay-tooltip">
+                        <strong>YouTube Ufficiale</strong>
+                        <em>https://www.youtube.com/@AngoloInformatico</em>
+                    </span>
+                </a>
+
+                <a href="https://github.com/AngoloInformatico" target="_blank" rel="noopener noreferrer" class="hoverlay-link link-github" title="Profilo GitHub Angolo Informatico">
+                    <i class="fa-brands fa-github link-icon"></i>
+                    <span class="link-label">GitHub Profile</span>
+                    <span class="hoverlay-tooltip">
+                        <strong>Profilo GitHub</strong>
+                        <em>https://github.com/AngoloInformatico</em>
+                    </span>
+                </a>
+
+                <a href="https://github.com/AngoloInformatico?tab=repositories" target="_blank" rel="noopener noreferrer" class="hoverlay-link link-repos" title="Tutti i Repository GitHub">
+                    <i class="fa-solid fa-folder-tree link-icon"></i>
+                    <span class="link-label">Repositories</span>
+                    <span class="hoverlay-tooltip">
+                        <strong>GitHub Repositories</strong>
+                        <em>https://github.com/AngoloInformatico?tab=repositories</em>
+                    </span>
+                </a>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Toast di notifica rapida -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
