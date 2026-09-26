@@ -84,10 +84,32 @@ document.addEventListener('DOMContentLoaded', () => {
     // =========================================================================
     // ARRESTO AUTOMATICO ALLA CHIUSURA DELLA FINESTRA
     // =========================================================================
-    // Invia un battito ogni 2 secondi per confermare che l'applicazione è attiva
-    setInterval(() => {
+    function sendHeartbeat() {
         fetch('/api/heartbeat', { method: 'POST' }).catch(() => {});
-    }, 2000);
+    }
+
+    // Invia heartbeat iniziale
+    sendHeartbeat();
+
+    // Timer ad intervalli regolari (con Web Worker per prevenire il congelamento del timer da parte del browser)
+    try {
+        const workerBlob = new Blob([
+            "setInterval(() => { postMessage('beat'); }, 2000);"
+        ], { type: 'application/javascript' });
+        const workerUrl = URL.createObjectURL(workerBlob);
+        const beatWorker = new Worker(workerUrl);
+        beatWorker.onmessage = () => { sendHeartbeat(); };
+    } catch (e) {
+        setInterval(sendHeartbeat, 2000);
+    }
+
+    // Invia battito immediato se la finestra torna visibile o riceve il focus
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+            sendHeartbeat();
+        }
+    });
+    window.addEventListener('focus', sendHeartbeat);
 
     // Quando l'utente chiude la finestra (X), invia segnale di shutdown immediato
     window.addEventListener('beforeunload', () => {
@@ -280,6 +302,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         appendTerminalLine(`\n-------------------------------------------------------------`, "term-gray");
         appendTerminalLine(`> [RICHIESTA] Inizializzazione comando in corso...`, "term-cyan");
+
+        sendHeartbeat();
 
         fetch('/api/execute', {
             method: 'POST',

@@ -204,6 +204,7 @@ def api_open_external_browser():
 # Variabili di stato per il monitoraggio chiusura finestra
 LAST_HEARTBEAT = time.time()
 HEARTBEAT_ACTIVE = False
+WATCHDOG_TIMEOUT = 30.0  # Secondi di tolleranza senza heartbeat prima di arrestare il backend
 
 @app.route("/api/heartbeat", methods=["POST"])
 def api_heartbeat():
@@ -215,19 +216,21 @@ def api_heartbeat():
 
 @app.route("/api/shutdown", methods=["POST", "GET"])
 def api_shutdown():
-    """Arresta immediatamente l'applicazione e tutti i processi quando l'utente chiude la finestra."""
-    def kill_now():
-        time.sleep(0.3)
-        os._exit(0)
-    threading.Thread(target=kill_now, daemon=True).start()
-    return jsonify({"success": True, "message": "Arresto completato."})
+    """Arresta l'applicazione alla chiusura effettiva della finestra, evitando falsi positivi da F5."""
+    def delayed_shutdown():
+        time.sleep(2.5)
+        # Se dopo 2.5s è arrivato un nuovo heartbeat, significa che la pagina è stata ricaricata (F5)
+        if time.time() - LAST_HEARTBEAT > 2.0:
+            os._exit(0)
+    threading.Thread(target=delayed_shutdown, daemon=True).start()
+    return jsonify({"success": True, "message": "Arresto pianificato."})
 
 def heartbeat_watchdog():
-    """Watchdog: se non riceve heartbeat per oltre 5 secondi, arresta l'intero programma."""
-    time.sleep(6.0)
+    """Watchdog: se non riceve heartbeat per oltre 30 secondi dopo l'avvio, arresta l'intero programma."""
+    time.sleep(15.0)  # Periodo di grazia iniziale per permettere al browser di avviarsi e caricare la WebApp
     while True:
-        time.sleep(1.5)
-        if HEARTBEAT_ACTIVE and (time.time() - LAST_HEARTBEAT > 5.0):
+        time.sleep(2.0)
+        if HEARTBEAT_ACTIVE and (time.time() - LAST_HEARTBEAT > WATCHDOG_TIMEOUT):
             print("\n[INFO] Finestra dell'applicazione chiusa. Arresto completato di tutti i processi.")
             os._exit(0)
 
@@ -457,10 +460,20 @@ def launch_app_window(url):
     browser_exe = find_app_browser()
     win_w, win_h, pos_x, pos_y = get_centered_window_geometry(1560, 960)
 
+    # Avvia sempre il watchdog dell'heartbeat per arrestare il server quando la sessione termina
+    threading.Thread(target=heartbeat_watchdog, daemon=True).start()
+
     if browser_exe:
+        import tempfile
+        profile_dir = os.path.join(os.environ.get("LOCALAPPDATA", tempfile.gettempdir()), "WindowsRepairTool", "browser_profile")
+        os.makedirs(profile_dir, exist_ok=True)
+
         cmd = [
             browser_exe,
             f"--app={url}",
+            f"--user-data-dir={profile_dir}",
+            "--no-first-run",
+            "--no-default-browser-check",
             f"--window-size={win_w},{win_h}",
             f"--window-position={pos_x},{pos_y}"
         ]
@@ -487,20 +500,17 @@ def launch_app_window(url):
                     pass
 
         threading.Thread(target=enforce_center, daemon=True).start()
-        # Avvia il watchdog dell'heartbeat per arrestare il server appena la finestra si chiude
-        threading.Thread(target=heartbeat_watchdog, daemon=True).start()
 
         try:
             proc = subprocess.Popen(cmd)
-            # Attendiamo per verificare se il processo è rimasto agganciato alla finestra dedicata
-            time.sleep(2.0)
-            if proc.poll() is None:
-                # Il processo monitora attivamente la finestra dedicata: attendi la chiusura
-                proc.wait()
+            proc_start = time.time()
+            proc.wait()
+            # Se il processo è rimasto aperto più di 4 secondi, significa che la finestra era attiva ed è stata chiusa dall'utente
+            if time.time() - proc_start > 4.0:
                 os._exit(0)
             else:
-                # Il browser ha aperto la finestra standalone delegando a un'istanza in esecuzione.
-                # Il watchdog e il beacon beforeunload chiuderanno automaticamente tutto non appena la finestra si chiude.
+                # Se il browser ha delegato rapidamente ad un'istanza preesistente,
+                # rimaniamo in attesa lasciando il controllo a beforeunload / watchdog
                 try:
                     while True:
                         time.sleep(1.0)
@@ -510,8 +520,18 @@ def launch_app_window(url):
             os._exit(0)
         except Exception:
             webbrowser.open(url)
+            try:
+                while True:
+                    time.sleep(1.0)
+            except KeyboardInterrupt:
+                os._exit(0)
     else:
         webbrowser.open(url)
+        try:
+            while True:
+                time.sleep(1.0)
+        except KeyboardInterrupt:
+            os._exit(0)
 
 def find_free_port(preferred_port=5000, max_port=5100, host="127.0.0.1", wait_seconds=0):
     """
